@@ -3,27 +3,31 @@
 # SPDX-License-Identifier: MIT-0
 
 import argparse
-
 import boto3
+import os
+import traceback
 
+from os import listdir
+from os.path import isfile, join
+from pathlib import Path
 from botocore.exceptions import ClientError
 from pptx import Presentation
 from pptx.enum.lang import MSO_LANGUAGE_ID
-
+from pptx.enum.text import MSO_AUTO_SIZE
+from datetime import date
+from pptx.util import Pt
 
 LANGUAGE_CODE_TO_LANGUAGE_ID = {
-"""
-Dict that maps Amazon Translate language code to MSO_LANGUAGE_ID enum value.
-
-- Amazon Translate language codes: https://docs.aws.amazon.com/translate/latest/dg/what-is.html#what-is-languages
-- python-pptx MSO_LANGUAGE_ID enum: https://python-pptx.readthedocs.io/en/latest/api/enum/MsoLanguageId.html
-
-python-pptx doesn't support:
-    - Azerbaijani (az)
-    - Persian (fa)
-    - Dari (fa-AF)
-    - Tagalog (tl)
-"""
+    """
+    Dict that maps Amazon Translate language code to MSO_LANGUAGE_ID enum value.
+    - Amazon Translate language codes: https://docs.aws.amazon.com/translate/latest/dg/what-is.html#what-is-languages
+    - python-pptx MSO_LANGUAGE_ID enum: https://python-pptx.readthedocs.io/en/latest/api/enum/MsoLanguageId.html
+    python-pptx doesn't support:
+        - Azerbaijani (az)
+        - Persian (fa)
+        - Dari (fa-AF)
+        - Tagalog (tl)
+    """
     'af': MSO_LANGUAGE_ID.AFRIKAANS,
     'am': MSO_LANGUAGE_ID.AMHARIC,
     'ar': MSO_LANGUAGE_ID.ARABIC,
@@ -72,62 +76,84 @@ python-pptx doesn't support:
     'uk': MSO_LANGUAGE_ID.UKRAINIAN,
     'ur': MSO_LANGUAGE_ID.URDU,
     'vi': MSO_LANGUAGE_ID.VIETNAMESE,
-    'zh': MSO_LANGUAGE_ID.CHINESE_SINGAPORE ,
+    'zh': MSO_LANGUAGE_ID.CHINESE_SINGAPORE,
     'zh-TW': MSO_LANGUAGE_ID.CHINESE_HONG_KONG_SAR,
 }
 
 TERMINOLOGY_NAME = 'pptx-translator-terminology'
+skip = ''  # Text to skip
+
+translate = boto3.client(service_name='translate', region_name='us-west-2',
+                         aws_access_key_id='',
+                         aws_secret_access_key='')
 
 
-translate = boto3.client(service_name='translate')
+def resize(shape):
+    # for size in [15, 13, 8, 2]:
+    #   try:
+    #      shape.text_frame.fit_text(max_size=size)
+    #     break
+    # except TypeError:
+    #   pass
+    # print('Could not fit text!')
+    try:
+        shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        shape.text_frame.word_wrap = True
+    except AttributeError:
+        traceback.print_exc()
 
 
-def translate_presentation(presentation, source_language_code, target_language_code, terminology_names):
+def translate_request(text, source_language_code, dest_language_code, terminology_names):
+    if len(text) > 0 and text.casefold() != skip.casefold() and not text.startswith("http"):
+        try:
+            response = translate.translate_text(
+                Text=text,
+                SourceLanguageCode=source_language_code,
+                TargetLanguageCode=dest_language_code,
+                TerminologyNames=terminology_names)
+            return response.get('TranslatedText')
+        except ClientError as client_error:
+            if client_error.response['Error']['Code'] == 'ValidationException':
+                # Text not valid. Maybe the size of the text exceeds the size limit of the service.
+                # Amazon Translate limits: https://docs.aws.amazon.com/translate/latest/dg/what-is-limits.html
+                # We just ignore and don't translate the text.
+                print('Invalid text. Ignoring...')
+
+
+def translate_main(slide, presentation, source_language_code, dest_language_code, terminology_names):
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        for paragraph in shape.text_frame.paragraphs:
+            paraText = ''
+            for index, paragraph_run in enumerate(paragraph.runs):  # concatenate all the runs
+                paraText += paragraph_run.text
+            run = paragraph.add_run()
+            # set font for translated text
+            if paragraph.font.size is not None:
+                run.font.size = paragraph.font.size - Pt(3)
+                paragraph.font.size = run.font.size
+            elif paragraph.runs[0].font.size is not None:
+                run.font.size = paragraph.runs[0].font.size - Pt(3)
+                for each in paragraph.runs: each.font.size = run.font.size
+            # #Translate text with large enough font if size is not none
+            if run.font.size is not None and run.font.size > Pt(13) or run.font.size is None:
+                returned = translate_request(paraText, source_language_code, dest_language_code, terminology_names)
+                if isinstance(returned, str):
+                    run.text = " " + returned
+            run.font.language_id = LANGUAGE_CODE_TO_LANGUAGE_ID[dest_language_code]
+            # paragraph.runs[index].font.language_id = LANGUAGE_CODE_TO_LANGUAGE_ID[dest_language_code]
+        resize(shape)
+
+
+def translate_presentation(presentation, source_language_code, dest_language_code, terminology_names):
     slide_number = 1
     for slide in presentation.slides:
         print('Slide {slide_number} of {number_of_slides}'.format(
-                slide_number=slide_number,
-                number_of_slides=len(presentation.slides)))
+            slide_number=slide_number,
+            number_of_slides=len(presentation.slides)))
         slide_number += 1
-
-        # translate comments
-        if slide.has_notes_slide:
-            text_frame = slide.notes_slide.notes_text_frame
-            if len(text_frame.text) > 0:
-                try:
-                    response = translate.translate_text(
-                            Text=text_frame.text,
-                            SourceLanguageCode=source_language_code,
-                            TargetLanguageCode=target_language_code,
-                            TerminologyNames=terminology_names)
-                    slide.notes_slide.notes_text_frame.text = response.get('TranslatedText')
-                except ClientError as client_error:
-                    if (client_error.response['Error']['Code'] == 'ValidationException'):
-                        # Text not valid. Maybe the size of the text exceeds the size limit of the service.
-                        # Amazon Translate limits: https://docs.aws.amazon.com/translate/latest/dg/what-is-limits.html
-                        # We just ignore and don't translate the text.
-                        print('Invalid text. Ignoring...')
-
-        # translate other texts
-        for shape in slide.shapes:
-            if not shape.has_text_frame:
-                continue
-            for paragraph in shape.text_frame.paragraphs:
-                for index, paragraph_run in enumerate(paragraph.runs):
-                    try:
-                        response = translate.translate_text(
-                                Text=paragraph_run.text,
-                                SourceLanguageCode=source_language_code,
-                                TargetLanguageCode=target_language_code,
-                                TerminologyNames=terminology_names)
-                        paragraph.runs[index].text = response.get('TranslatedText')
-                        paragraph.runs[index].font.language_id = LANGUAGE_CODE_TO_LANGUAGE_ID[target_language_code]
-                    except ClientError as client_error:
-                        if (client_error.response['Error']['Code'] == 'ValidationException'):
-                            # Text not valid. Maybe the size of the text exceeds the size limit of the service.
-                            # Amazon Translate limits: https://docs.aws.amazon.com/translate/latest/dg/what-is-limits.html
-                            # We just ignore and don't translate the text.
-                            print('Invalid text. Ignoring...')
+        translate_main(slide, presentation, source_language_code, dest_language_code, terminology_names)
 
 
 def import_terminology(terminology_file_path):
@@ -138,43 +164,61 @@ def import_terminology(terminology_file_path):
                                      TerminologyData={'File': bytearray(f.read()), 'Format': 'CSV'})
 
 
+def read_skip_text():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    txt_path = join(dir_path, 'workspace', 'skip.txt')
+    try:
+        text_input = open(txt_path)
+        text_to_skip = text_input.read()
+        text_input.close()
+        global skip
+        skip = text_to_skip
+    except OSError:
+        print('could not read file:' + txt_path)
+
+
+def iterate_files(terminology_names, source_lang, dest_lang):
+    read_skip_text()
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    input_dir = join(dir_path, 'workspace')
+    file_paths = [join(input_dir, each) for each in listdir(input_dir) if isfile(join(input_dir, each))
+                  and each.endswith('.pptx')]
+    out_dir = join(input_dir, 'output')
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    for file_path in file_paths:
+        print('Translating {file_path} from {source_language_code} to {dest_language_code}...'.format(
+            file_path=file_path,
+            source_language_code=source_lang,
+            dest_language_code=dest_lang))
+        presentation = Presentation(file_path)
+        translate_presentation(presentation, source_lang, dest_lang, terminology_names)
+        output_file_path = join(input_dir + '\\' + 'output\\' + source_lang + '-' + dest_lang + '-' + date.today().strftime('%m-%d-') + os.path.basename(file_path))
+        print('Saving {output_file_path}...'.format(output_file_path=output_file_path))
+        presentation.save(output_file_path)
+
 def main():
     argument_parser = argparse.ArgumentParser(
-            'Translates pptx files from source language to target language using Amazon Translate service')
+        'Translates pptx files from source language to target language using Amazon Translate service')
     argument_parser.add_argument(
-            'source_language_code', type=str,
-            help='The language code for the language of the source text. Example: en')
+        '-t', type=str,
+        help='The path of the terminology CSV file')
     argument_parser.add_argument(
-            'target_language_code', type=str,
-            help='The language code requested for the language of the target text. Example: pt')
+        '-s', '--source_lang', type=str,
+        help='The source language')
     argument_parser.add_argument(
-            'input_file_path', type=str,
-            help='The path of the pptx file that should be translated')
-    argument_parser.add_argument(
-            '--terminology', type=str,
-            help='The path of the terminology CSV file')
+        '-d', '--dest_lang', type=str,
+        help='The destination language')
     args = argument_parser.parse_args()
 
     terminology_names = []
-    if args.terminology:
-        import_terminology(args.terminology)
+    if args.t:
+        import_terminology(args.t)
         terminology_names = [TERMINOLOGY_NAME]
+    source_lang = args.source_lang
+    dest_lang = args.dest_lang
+    iterate_files(terminology_names, source_lang, dest_lang)
 
-    print('Translating {file_path} from {source_language_code} to {target_language_code}...'.format(
-            file_path=args.input_file_path,
-            source_language_code=args.source_language_code,
-            target_language_code=args.target_language_code))
-    presentation = Presentation(args.input_file_path)
-    translate_presentation(presentation,
-                           args.source_language_code,
-                           args.target_language_code,
-                           terminology_names)
-
-    output_file_path = args.input_file_path.replace(
-            '.pptx', '-{language_code}.pptx'.format(language_code=args.target_language_code))
-    print('Saving {output_file_path}...'.format(output_file_path=output_file_path))
-    presentation.save(output_file_path)
-
-
-if __name__== '__main__':
-  main()
+if __name__ == '__main__':
+    main()
+    input("Press enter to exit;")

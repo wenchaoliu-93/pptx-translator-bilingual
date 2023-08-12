@@ -58,11 +58,3 @@ Here is documentation on translation customizations: Customizing your translatio
 ## Features 
 
 Two major features are worth noting. First, in many instances, appending text inevitably leads to overflow. The program automatically resizes the text to fit the text frame. This feature does need occasional tweaks. Second, the program can skip certain text for translation. It comes in handy in situations where there is reoccurring text that needs no translation, such as text that displays author or institution information. 
-
-## Security
-
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
-
-## License
-
-This library is licensed under the MIT-0 License. See the LICENSE file.

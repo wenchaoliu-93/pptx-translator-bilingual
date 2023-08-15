@@ -2,7 +2,7 @@
 
 Python script that translates pptx files using Amazon Translate service. This script differs from the original in a few ways. The major difference is that the translated text appends, rather than replaces, the original text. Another difference is on the input and output file management. Instead of requesting the file path, the script automatically works on the ppt files in the workspace directory, and saves the output files in the output sub-directory.
 ![image](https://github.com/wenchaoliu-93/pptx-translator-bilingual/assets/121582343/afeb667d-4d71-4630-8550-82d42799af21)
-
+[![IMAGE ALT TEXT](http://img.youtube.com/vi/hHuFEh-w1dE/0.jpg)](http://www.youtube.com/watch?v=hHuFEh-w1dE "Video Title")
 ## Installation
 
 ```

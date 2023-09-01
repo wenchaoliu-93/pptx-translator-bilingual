@@ -33,8 +33,7 @@ optional arguments:
 
 ## What is the program based off? 
 
-The program is modified from an Amazon Web Services(AWS) sample: GitHub - aws-samples/pptx-translator: Python script that translates pptx files using Amazon Translate service. Here is documentation for Amazon Translate, which includes developer guide and API reference: Amazon Translate Documentation. 
-
+The program is modified from an Amazon Web Services(AWS) sample that translates pptx files using Amazon Translate service. Here is documentation for Amazon Translate, which includes developer guide and API reference: Amazon Translate Documentation. 
  
 
 ## Execution Requirements 
@@ -54,6 +53,10 @@ The use case is to translate pptx slides that contain only one language into dua
 Before execution, the source pptx files should be placed in the workspace folder. The one argument is optional, which is path of the terminology CSV file.  Once executed, the program will output one pptx file for each source file. 
 
 Here is documentation on translation customizations: Customizing your translations with Amazon Translate - Amazon Translate. There are five customization settings: do-not-translate tags, custom terminology, profanity, formality, parallel data. 
+
+## Contact
+
+wenchaoliu93@gmail.com
 
 ## Features 
 

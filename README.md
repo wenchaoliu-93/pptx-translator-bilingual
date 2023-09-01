@@ -54,10 +54,11 @@ Before execution, the source pptx files should be placed in the workspace folder
 
 Here is documentation on translation customizations: Customizing your translations with Amazon Translate - Amazon Translate. There are five customization settings: do-not-translate tags, custom terminology, profanity, formality, parallel data. 
 
-## Contact
-
-wenchaoliu93@gmail.com
 
 ## Features 
 
 Two major features are worth noting. First, in many instances, appending text inevitably leads to overflow. The program automatically resizes the text to fit the text frame. This feature does need occasional tweaks. Second, the program can skip certain text for translation. It comes in handy in situations where there is reoccurring text that needs no translation, such as text that displays author or institution information. 
+
+## Contact
+
+wenchaoliu93@gmail.com

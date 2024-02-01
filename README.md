@@ -1,9 +1,9 @@
 # pptx-translator
 
-Python script that translates pptx files using Amazon Translate service. This script is built upon the [original AWS example]([url](https://github.com/aws-samples/pptx-translator))  and differs in a few ways. The major difference is that the translated text appends, rather than replaces, the original text. Another difference is on the input and output file management. Instead of requesting the file path, the script automatically works on the ppt files in the workspace directory, and saves the output files in the output sub-directory of the workspace directory.
+Python script that translates pptx files using Amazon Translate service. This script is built upon the [original AWS example](https://github.com/aws-samples/pptx-translator) and differs in a few ways. The major difference is that the translated text appends, rather than replaces, the original text. Another difference is on the input and output file management. Instead of requesting the file path, the script automatically works on the ppt files in the workspace directory, and saves the output files in the output sub-directory of the workspace directory.
 
 ![image](https://github.com/wenchaoliu-93/pptx-translator-bilingual/assets/121582343/afeb667d-4d71-4630-8550-82d42799af21)
-[Demo Video]([url](http://www.youtube.com/watch?v=hHuFEh-w1dE))
+[Demo Video](https://github.com/aws-samples/pptx-translator)
 
 ## Installation
 

@@ -5,6 +5,8 @@ Python script that translates pptx files using Amazon Translate service. This sc
 ![image](https://github.com/wenchaoliu-93/pptx-translator-bilingual/assets/121582343/afeb667d-4d71-4630-8550-82d42799af21)
 [**Demo Video**](https://www.youtube.com/watch?v=hHuFEh-w1dE)
 
+Use zip file for compiled code.
+
 ## Installation
 
 ```
